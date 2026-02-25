@@ -1,13 +1,12 @@
 import requests
 import os
 import csv
-from datetime import datetime
+from datetime import datetime, timedelta
 
 API_KEY = os.getenv("RAPIDAPI_KEY")
 
 ORIGIN = "BOM"
 DESTINATION = "DEL"
-DATE = "2026-03-10"
 
 CSV_FILE = "prices.csv"
 
@@ -16,38 +15,33 @@ HOST = "sky-scrapper.p.rapidapi.com"
 
 def get_airport_id(code):
 
-    try:
+    url = "https://sky-scrapper.p.rapidapi.com/api/v1/flights/searchAirport"
 
-        url = "https://sky-scrapper.p.rapidapi.com/api/v1/flights/searchAirport"
+    headers = {
+        "x-rapidapi-key": API_KEY,
+        "x-rapidapi-host": HOST
+    }
 
-        headers = {
-            "x-rapidapi-key": API_KEY,
-            "x-rapidapi-host": HOST
-        }
+    r = requests.get(url, headers=headers, params={"query": code})
 
-        r = requests.get(url, headers=headers, params={"query": code})
+    data = r.json()
 
-        data = r.json()
-
-        return data["data"][0]["entityId"]
-
-    except:
-
-        print("Airport lookup failed")
-
-        return None
+    return data["data"][0]["entityId"]
 
 
-def get_price(origin_id, dest_id):
+def find_flight(origin_id, dest_id):
 
-    try:
+    headers = {
+        "x-rapidapi-key": API_KEY,
+        "x-rapidapi-host": HOST
+    }
 
-        url = "https://sky-scrapper.p.rapidapi.com/api/v1/flights/searchFlights"
+    # Check next 30 days
+    for i in range(1,30):
 
-        headers = {
-            "x-rapidapi-key": API_KEY,
-            "x-rapidapi-host": HOST
-        }
+        date = (datetime.now() + timedelta(days=i)).strftime("%Y-%m-%d")
+
+        print("Checking:", date)
 
         params = {
 
@@ -57,38 +51,48 @@ def get_price(origin_id, dest_id):
             "originEntityId": origin_id,
             "destinationEntityId": dest_id,
 
-            "date": DATE,
+            "date": date,
 
             "adults": 1,
             "currency": "INR"
         }
+
+        url = "https://sky-scrapper.p.rapidapi.com/api/v1/flights/searchFlights"
 
         r = requests.get(url, headers=headers, params=params)
 
         data = r.json()
 
         if "data" not in data:
-
-            print("No API data")
-            return None
+            continue
 
         itineraries = data["data"].get("itineraries", [])
 
         if len(itineraries) == 0:
+            continue
 
-            print("No flights found")
-            return None
+        flight = itineraries[0]
 
-        return itineraries[0]["price"]["raw"]
+        leg = flight["legs"][0]
 
-    except:
+        segment = leg["segments"][0]
 
-        print("Price lookup failed")
+        flight_number = (
+            segment["marketingCarrier"]["alternateId"]
+            + segment["flightNumber"]
+        )
 
-        return None
+        departure = leg["departure"]
+        arrival = leg["arrival"]
+
+        price = flight["price"]["raw"]
+
+        return date, flight_number, departure, arrival, price
+
+    return None, None, None, None, None
 
 
-def save_price(price):
+def save_data(date, flight_number, departure, arrival, price):
 
     file_exists = os.path.isfile(CSV_FILE)
 
@@ -98,32 +102,43 @@ def save_price(price):
 
         if not file_exists:
 
-            writer.writerow(["DateTime", "Price"])
+            writer.writerow([
+                "CheckedOn",
+                "FlightDate",
+                "FlightNumber",
+                "Departure",
+                "Arrival",
+                "Price"
+            ])
 
-        writer.writerow([datetime.now(), price])
+        writer.writerow([
+            datetime.now(),
+            date,
+            flight_number,
+            departure,
+            arrival,
+            price
+        ])
 
 
-print("Starting Flight Tracker")
+print("Starting Tracker")
 
 origin_id = get_airport_id(ORIGIN)
 dest_id = get_airport_id(DESTINATION)
 
-if origin_id and dest_id:
+date, flight_number, departure, arrival, price = find_flight(origin_id, dest_id)
 
-    price = get_price(origin_id, dest_id)
+if price:
 
-    if price:
+    print("Flight:", flight_number)
+    print("Departure:", departure)
+    print("Arrival:", arrival)
+    print("Price:", price)
 
-        print("Price =", price)
+    save_data(date, flight_number, departure, arrival, price)
 
-        save_price(price)
-
-    else:
-
-        print("Price not found")
+    print("CSV Saved")
 
 else:
 
-    print("Airport error")
-
-print("Finished")
+    print("No flights found")
