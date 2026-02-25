@@ -36,8 +36,7 @@ def find_flight(origin_id, dest_id):
         "x-rapidapi-host": HOST
     }
 
-    # Check next 30 days
-    for i in range(1,30):
+    for i in range(1,20):
 
         date = (datetime.now() + timedelta(days=i)).strftime("%Y-%m-%d")
 
@@ -71,25 +70,33 @@ def find_flight(origin_id, dest_id):
         if len(itineraries) == 0:
             continue
 
-        flight = itineraries[0]
+        try:
 
-        leg = flight["legs"][0]
+            flight = itineraries[0]
 
-        segment = leg["segments"][0]
+            leg = flight["legs"][0]
 
-        flight_number = (
-            segment["marketingCarrier"]["alternateId"]
-            + segment["flightNumber"]
-        )
+            segment = leg["segments"][0]
 
-        departure = leg["departure"]
-        arrival = leg["arrival"]
+            carrier = segment["marketingCarrier"]["alternateId"]
 
-        price = flight["price"]["raw"]
+            number = segment["flightNumber"]
 
-        return date, flight_number, departure, arrival, price
+            flight_number = carrier + number
 
-    return None, None, None, None, None
+            departure = leg.get("departure","NA")
+
+            arrival = leg.get("arrival","NA")
+
+            price = flight["price"]["raw"]
+
+            return date, flight_number, departure, arrival, price
+
+        except:
+
+            continue
+
+    return "NA","NA","NA","NA","NA"
 
 
 def save_data(date, flight_number, departure, arrival, price):
@@ -128,17 +135,9 @@ dest_id = get_airport_id(DESTINATION)
 
 date, flight_number, departure, arrival, price = find_flight(origin_id, dest_id)
 
-if price:
+print("Flight:",flight_number)
+print("Price:",price)
 
-    print("Flight:", flight_number)
-    print("Departure:", departure)
-    print("Arrival:", arrival)
-    print("Price:", price)
+save_data(date, flight_number, departure, arrival, price)
 
-    save_data(date, flight_number, departure, arrival, price)
-
-    print("CSV Saved")
-
-else:
-
-    print("No flights found")
+print("CSV Saved")
