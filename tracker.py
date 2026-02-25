@@ -16,62 +16,76 @@ HOST = "sky-scrapper.p.rapidapi.com"
 
 def get_airport_id(code):
 
-    url = "https://sky-scrapper.p.rapidapi.com/api/v1/flights/searchAirport"
+    try:
 
-    headers = {
-        "x-rapidapi-key": API_KEY,
-        "x-rapidapi-host": HOST
-    }
+        url = "https://sky-scrapper.p.rapidapi.com/api/v1/flights/searchAirport"
 
-    r = requests.get(url, headers=headers, params={"query": code})
+        headers = {
+            "x-rapidapi-key": API_KEY,
+            "x-rapidapi-host": HOST
+        }
 
-    data = r.json()
+        r = requests.get(url, headers=headers, params={"query": code})
 
-    return data["data"][0]["entityId"]
+        data = r.json()
+
+        return data["data"][0]["entityId"]
+
+    except:
+
+        print("Airport lookup failed")
+
+        return None
 
 
 def get_price(origin_id, dest_id):
 
-    url = "https://sky-scrapper.p.rapidapi.com/api/v1/flights/searchFlights"
+    try:
 
-    headers = {
-        "x-rapidapi-key": API_KEY,
-        "x-rapidapi-host": HOST
-    }
+        url = "https://sky-scrapper.p.rapidapi.com/api/v1/flights/searchFlights"
 
-    params = {
+        headers = {
+            "x-rapidapi-key": API_KEY,
+            "x-rapidapi-host": HOST
+        }
 
-        "originSkyId": ORIGIN,
-        "destinationSkyId": DESTINATION,
+        params = {
 
-        "originEntityId": origin_id,
-        "destinationEntityId": dest_id,
+            "originSkyId": ORIGIN,
+            "destinationSkyId": DESTINATION,
 
-        "date": DATE,
+            "originEntityId": origin_id,
+            "destinationEntityId": dest_id,
 
-        "adults": 1,
-        "currency": "INR"
-    }
+            "date": DATE,
 
-    r = requests.get(url, headers=headers, params=params)
+            "adults": 1,
+            "currency": "INR"
+        }
 
-    data = r.json()
+        r = requests.get(url, headers=headers, params=params)
 
-    if "data" not in data:
+        data = r.json()
 
-        print("No data returned")
+        if "data" not in data:
+
+            print("No API data")
+            return None
+
+        itineraries = data["data"].get("itineraries", [])
+
+        if len(itineraries) == 0:
+
+            print("No flights found")
+            return None
+
+        return itineraries[0]["price"]["raw"]
+
+    except:
+
+        print("Price lookup failed")
+
         return None
-
-    itineraries = data["data"]["itineraries"]
-
-    if len(itineraries) == 0:
-
-        print("No flights found")
-        return None
-
-    price = itineraries[0]["price"]["raw"]
-
-    return price
 
 
 def save_price(price):
@@ -94,16 +108,22 @@ print("Starting Flight Tracker")
 origin_id = get_airport_id(ORIGIN)
 dest_id = get_airport_id(DESTINATION)
 
-price = get_price(origin_id, dest_id)
+if origin_id and dest_id:
 
-if price:
+    price = get_price(origin_id, dest_id)
 
-    print("Price =", price)
+    if price:
 
-    save_price(price)
+        print("Price =", price)
+
+        save_price(price)
+
+    else:
+
+        print("Price not found")
 
 else:
 
-    print("Price not found")
+    print("Airport error")
 
 print("Finished")
