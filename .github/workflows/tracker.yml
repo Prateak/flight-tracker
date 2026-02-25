@@ -1,0 +1,29 @@
+name: Flight Tracker
+
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  run-tracker:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Install Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install packages
+      run: pip install requests
+
+    - name: Run tracker
+      run: python tracker.py
+      env:
+        RAPIDAPI_KEY: 71071d9198msh758e4b81eb1efddp1c92e0jsnf13a8d59d120
